@@ -1,11 +1,12 @@
-const { src, dest, parallel, series, watch } = require('gulp')
-
+module.exports = require('zce-pages')
+return
+const { src, dest, series, parallel, watch } = require('gulp')
 const del = require('del')
 const browserSync = require('browser-sync')
 
-const loadPlugins = require('gulp-load-plugins')
+const gulpLoadPlugins = require('gulp-load-plugins')
 
-const plugins = loadPlugins()
+const plugins = gulpLoadPlugins()
 const bs = browserSync.create()
 
 const data = {
@@ -57,21 +58,18 @@ const style = () => {
   return src('src/assets/styles/*.scss', { base: 'src' })
     .pipe(plugins.sass({ outputStyle: 'expanded' }))
     .pipe(dest('temp'))
-    .pipe(bs.reload({ stream: true }))
 }
 
 const script = () => {
   return src('src/assets/scripts/*.js', { base: 'src' })
     .pipe(plugins.babel({ presets: ['@babel/preset-env'] }))
     .pipe(dest('temp'))
-    .pipe(bs.reload({ stream: true }))
 }
 
 const page = () => {
   return src('src/*.html', { base: 'src' })
-    .pipe(plugins.swig({ data, defaults: { cache: false } })) // 防止模板缓存导致页面不能及时更新
+    .pipe(plugins.swig({ data, defaults: { cache: false } }))
     .pipe(dest('temp'))
-    .pipe(bs.reload({ stream: true }))
 }
 
 const image = () => {
@@ -91,37 +89,9 @@ const extra = () => {
     .pipe(dest('dist'))
 }
 
-const serve = () => {
-  watch('src/assets/styles/*.scss', style)
-  watch('src/assets/scripts/*.js', script)
-  watch('src/*.html', page)
-  // watch('src/assets/images/**', image)
-  // watch('src/assets/fonts/**', font)
-  // watch('public/**', extra)
-  watch([
-    'src/assets/images/**',
-    'src/assets/fonts/**',
-    'public/**'
-  ], bs.reload)
-
-  bs.init({
-    notify: false,
-    port: 2080,
-    // open: false,
-    // files: 'dist/**',
-    server: {
-      baseDir: ['temp', 'src', 'public'],
-      routes: {
-        '/node_modules': 'node_modules'
-      }
-    }
-  })
-}
-
 const useref = () => {
   return src('temp/*.html', { base: 'temp' })
     .pipe(plugins.useref({ searchPath: ['temp', '.'] }))
-    // html js css
     .pipe(plugins.if(/\.js$/, plugins.uglify()))
     .pipe(plugins.if(/\.css$/, plugins.cleanCss()))
     .pipe(plugins.if(/\.html$/, plugins.htmlmin({
@@ -132,23 +102,47 @@ const useref = () => {
     .pipe(dest('dist'))
 }
 
+const serve = () => {
+  watch('src/assets/styles/*.scss', style)
+  watch('src/assets/scripts/*.js', script)
+  watch('src/*.html', page)
+
+  watch([
+    'src/assets/styles/*.scss',
+    'src/assets/scripts/*.js',
+    'src/*.html'
+  ], bs.reload)
+
+  bs.init({
+    notify: false,
+    port: 1008,
+    open: false,
+    files: 'temp/**',
+    server: {
+      baseDir: ['temp', 'dist', 'public'],
+      routes: {
+        '/node_modules': 'node_modules'
+      }
+    }
+  })
+}
+
 const compile = parallel(style, script, page)
 
-// 上线之前执行的任务
-const build =  series(
+const build = series(
   clean,
   parallel(
     series(compile, useref),
+    extra,
     image,
-    font,
-    extra
+    font
   )
 )
 
 const develop = series(compile, serve)
 
-module.exports = {
-  clean,
-  build,
-  develop
-}
+// module.exports = {
+//   clean,
+//   build,
+//   develop,
+// }
